@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zenly.ai — Invoice Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --black: #0a0a0a;
+  --dark: #111;
+  --rule: #1e1e1e;
+  --rule2: #2a2a2a;
+  --white: #f7f5f2;
+  --off-white: #eeece9;
+  --muted: #555;
+  --faint: #2e2e2e;
+  --input-bg: #141414;
+  --card: #131313;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+header {
+  border-bottom: 0.5px solid var(--rule);
+  padding: 20px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo { font-weight: 500; font-size: 17px; letter-spacing: -0.5px; color: var(--white); }
+.logo span { font-size: 10px; font-weight: 300; color: var(--muted); letter-spacing: 1px; margin-left: 2px; vertical-align: super; }
+.header-tag { font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+
+/* ── LAYOUT ── */
+.app { display: grid; grid-template-columns: 1fr 1fr; min-height: calc(100vh - 61px); }
+
+/* ── LEFT PANEL — FORM ── */
+.form-panel {
+  border-right: 0.5px solid var(--rule);
+  padding: 48px;
+  overflow-y: auto;
+}
+.panel-title {
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.panel-title::before { content: ''; display: block; width: 20px; height: 0.5px; background: var(--muted); }
+
+.form-section { margin-bottom: 40px; }
+.form-section-label {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding-bottom: 12px;
+  border-bottom: 0.5px solid var(--rule2);
+  margin-bottom: 24px;
+}
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.form-row.single { grid-template-columns: 1fr; }
+.form-group { display: flex; flex-direction: column; gap: 8px; }
+.form-label { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+.form-input, .form-select, .form-textarea {
+  background: var(--input-bg);
+  border: 0.5px solid var(--rule2);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+  border-radius: 2px;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--muted); }
+.form-input::placeholder, .form-textarea::placeholder { color: #333; }
+.form-select { cursor: pointer; }
+.form-select option { background: var(--dark); }
+.form-textarea { resize: vertical; min-height: 70px; }
+
+/* Line items */
+.items-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.items-table th {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding: 0 8px 10px;
+  text-align: left;
+  border-bottom: 0.5px solid var(--rule2);
+}
+.items-table th:last-child { width: 32px; }
+.item-row td { padding: 6px 8px; vertical-align: middle; }
+.item-row td:last-child { text-align: center; }
+.item-input {
+  background: var(--input-bg);
+  border: 0.5px solid var(--rule2);
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 300;
+  padding: 8px 10px;
+  outline: none;
+  width: 100%;
+  border-radius: 2px;
+  transition: border-color 0.2s;
+}
+.item-input:focus { border-color: var(--muted); }
+.item-input::placeholder { color: #2a2a2a; }
+.item-total {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 70px;
+  text-align: right;
+  padding-right: 4px;
+}
+.btn-remove {
+  background: none;
+  border: 0.5px solid var(--rule2);
+  color: var(--muted);
+  width: 24px; height: 24px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: border-color 0.2s, color 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-remove:hover { border-color: #555; color: var(--white); }
+.btn-add-item {
+  background: none;
+  border: 0.5px solid var(--rule2);
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  width: 100%;
+  border-radius: 2px;
+}
+.btn-add-item:hover { border-color: var(--muted); color: var(--white); }
+
+/* Totals row */
+.totals-section { margin-top: 8px; }
+.totals-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; color: var(--muted); border-bottom: 0.5px solid var(--rule); }
+.totals-row.grand { color: var(--white); font-weight: 500; font-size: 15px; border-bottom: none; padding-top: 14px; }
+
+/* Action buttons */
+.actions { display: flex; gap: 12px; margin-top: 40px; }
+.btn-primary {
+  flex: 1;
+  background: var(--white);
+  color: var(--black);
+  border: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-radius: 2px;
+}
+.btn-primary:hover { background: var(--off-white); }
+.btn-secondary {
+  flex: 1;
+  background: none;
+  color: var(--muted);
+  border: 0.5px solid var(--rule2);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  border-radius: 2px;
+}
+.btn-secondary:hover { border-color: var(--muted); color: var(--white); }
+
+/* ── RIGHT PANEL — PREVIEW ── */
+.preview-panel {
+  background: #e8e6e3;
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+}
+.preview-label {
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: #999;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.preview-label::before { content: ''; display: block; width: 20px; height: 0.5px; background: #999; }
+
+/* Invoice document */
+#invoice-doc {
+  background: #faf8f5;
+  width: 100%;
+  max-width: 560px;
+  padding: 56px 56px 64px;
+  box-shadow: 0 4px 40px rgba(0,0,0,0.15);
+  font-family: 'DM Sans', sans-serif;
+  color: #111;
+  min-height: 700px;
+}
+.inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 56px; }
+.inv-logo { font-weight: 500; font-size: 20px; letter-spacing: -0.5px; color: #0a0a0a; }
+.inv-logo span { font-size: 10px; font-weight: 300; color: #aaa; letter-spacing: 1px; margin-left: 2px; vertical-align: super; }
+.inv-title-block { text-align: right; }
+.inv-title { font-family: 'DM Serif Display', serif; font-size: 32px; color: #0a0a0a; font-weight: 400; }
+.inv-number { font-size: 11px; letter-spacing: 2px; color: #999; margin-top: 4px; }
+.inv-date { font-size: 11px; color: #999; margin-top: 2px; }
+
+.inv-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 48px; }
+.inv-party-label { font-size: 9px; letter-spacing: 3px; color: #bbb; text-transform: uppercase; margin-bottom: 10px; }
+.inv-party-name { font-size: 15px; font-weight: 500; color: #0a0a0a; margin-bottom: 4px; }
+.inv-party-detail { font-size: 12px; color: #888; line-height: 1.7; }
+
+.inv-rule { height: 0.5px; background: #e0deda; margin-bottom: 24px; }
+
+.inv-items { width: 100%; border-collapse: collapse; margin-bottom: 32px; }
+.inv-items th {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #bbb;
+  text-transform: uppercase;
+  padding: 0 0 12px;
+  text-align: left;
+  border-bottom: 0.5px solid #e0deda;
+}
+.inv-items th:last-child { text-align: right; }
+.inv-items td {
+  padding: 14px 0;
+  font-size: 13px;
+  color: #333;
+  border-bottom: 0.5px solid #f0eeeb;
+  vertical-align: top;
+}
+.inv-items td:last-child { text-align: right; color: #0a0a0a; font-weight: 500; }
+.inv-items td.desc { color: #0a0a0a; font-weight: 400; }
+.inv-items td.sub-desc { font-size: 11px; color: #aaa; padding-top: 2px; }
+
+.inv-totals { margin-left: auto; width: 240px; }
+.inv-total-row { display: flex; justify-content: space-between; font-size: 12px; color: #888; padding: 6px 0; border-bottom: 0.5px solid #f0eeeb; }
+.inv-total-row.grand { font-size: 16px; font-weight: 500; color: #0a0a0a; border-bottom: none; padding-top: 12px; border-top: 0.5px solid #d0ceca; margin-top: 4px; }
+
+.inv-notes { margin-top: 48px; padding-top: 24px; border-top: 0.5px solid #e0deda; }
+.inv-notes-label { font-size: 9px; letter-spacing: 3px; color: #bbb; text-transform: uppercase; margin-bottom: 8px; }
+.inv-notes-text { font-size: 12px; color: #888; line-height: 1.7; }
+
+.inv-footer {
+  margin-top: 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 20px;
+  border-top: 0.5px solid #e0deda;
+}
+.inv-footer-brand { font-size: 10px; color: #ccc; letter-spacing: 2px; }
+.inv-footer-status {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 0.5px solid #0a0a0a;
+  color: #0a0a0a;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 32px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--white);
+  color: var(--black);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 14px 28px;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+  z-index: 999;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .form-panel { border-right: none; border-bottom: 0.5px solid var(--rule); }
+  .preview-panel { padding: 32px 16px; }
+  #invoice-doc { padding: 32px 24px; }
+  .inv-parties { grid-template-columns: 1fr; gap: 20px; }
+  header { padding: 16px 20px; }
+  .form-panel { padding: 32px 20px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">zenly<span>ai</span></div>
+  <div class="header-tag">Invoice Generator</div>
+</header>
+
+<div class="app">
+
+  <!-- FORM PANEL -->
+  <div class="form-panel">
+    <div class="panel-title">Invoice details</div>
+
+    <!-- Invoice Meta -->
+    <div class="form-section">
+      <div class="form-section-label">Invoice info</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Invoice #</label>
+          <input class="form-input" id="inv-number" value="INV-001" oninput="update()"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="inv-status" onchange="update()">
+            <option value="Draft">Draft</option>
+            <option value="Sent">Sent</option>
+            <option value="Paid">Paid</option>
+            <option value="Overdue">Overdue</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Issue date</label>
+          <input class="form-input" id="inv-date" type="date" oninput="update()"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due date</label>
+          <input class="form-input" id="inv-due" type="date" oninput="update()"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Currency</label>
+          <select class="form-select" id="inv-currency" onchange="update()">
+            <option value="$">USD ($)</option>
+            <option value="£">GBP (£)</option>
+            <option value="€">EUR (€)</option>
+            <option value="₹">INR (₹)</option>
+            <option value="¥">JPY (¥)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- From -->
+    <div class="form-section">
+      <div class="form-section-label">From (your business)</div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label class="form-label">Business name</label>
+          <input class="form-input" id="from-name" placeholder="Zenly.ai" oninput="update()"/>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" id="from-email" placeholder="hello@zenly.ai" oninput="update()"/>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <textarea class="form-textarea" id="from-address" placeholder="123 Main St, City, Country" rows="2" oninput="update()"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- To -->
+    <div class="form-section">
+      <div class="form-section-label">Bill to (client)</div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label class="form-label">Client name</label>
+          <input class="form-input" id="to-name" placeholder="Acme Corp" oninput="update()"/>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" id="to-email" placeholder="billing@acme.com" oninput="update()"/>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label class="form-label">Address</label>
+          <textarea class="form-textarea" id="to-address" placeholder="456 Client Ave, City, Country" rows="2" oninput="update()"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Items -->
+    <div class="form-section">
+      <div class="form-section-label">Line items</div>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="width:38%">Description</th>
+            <th style="width:15%">Qty</th>
+            <th style="width:20%">Rate</th>
+            <th style="width:20%">Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="items-body"></tbody>
+      </table>
+      <button class="btn-add-item" onclick="addItem()">+ Add line item</button>
+    </div>
+
+    <!-- Totals -->
+    <div class="form-section">
+      <div class="form-section-label">Adjustments</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Discount (%)</label>
+          <input class="form-input" id="discount" type="number" value="0" min="0" max="100" oninput="update()"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tax (%)</label>
+          <input class="form-input" id="tax" type="number" value="0" min="0" max="100" oninput="update()"/>
+        </div>
+      </div>
+      <div class="totals-section" id="totals-summary"></div>
+    </div>
+
+    <!-- Notes -->
+    <div class="form-section">
+      <div class="form-section-label">Notes</div>
+      <div class="form-row single">
+        <div class="form-group">
+          <textarea class="form-textarea" id="notes" placeholder="Payment terms, bank details, thank you note..." rows="3" oninput="update()"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" onclick="downloadPDF()">Download PDF →</button>
+      <button class="btn-secondary" onclick="resetForm()">Reset</button>
+    </div>
+  </div>
+
+  <!-- PREVIEW PANEL -->
+  <div class="preview-panel">
+    <div class="preview-label">Live preview</div>
+    <div id="invoice-doc">
+      <div class="inv-header">
+        <div class="inv-logo">zenly<span>ai</span></div>
+        <div class="inv-title-block">
+          <div class="inv-title">Invoice</div>
+          <div class="inv-number" id="prev-number">INV-001</div>
+          <div class="inv-date" id="prev-dates">—</div>
+        </div>
+      </div>
+
+      <div class="inv-parties">
+        <div>
+          <div class="inv-party-label">From</div>
+          <div class="inv-party-name" id="prev-from-name">—</div>
+          <div class="inv-party-detail" id="prev-from-detail">—</div>
+        </div>
+        <div>
+          <div class="inv-party-label">Bill to</div>
+          <div class="inv-party-name" id="prev-to-name">—</div>
+          <div class="inv-party-detail" id="prev-to-detail">—</div>
+        </div>
+      </div>
+
+      <div class="inv-rule"></div>
+
+      <table class="inv-items">
+        <thead>
+          <tr>
+            <th style="width:45%">Description</th>
+            <th style="width:15%">Qty</th>
+            <th style="width:20%">Rate</th>
+            <th style="width:20%">Amount</th>
+          </tr>
+        </thead>
+        <tbody id="prev-items"></tbody>
+      </table>
+
+      <div class="inv-totals" id="prev-totals"></div>
+
+      <div class="inv-notes" id="prev-notes-wrap" style="display:none">
+        <div class="inv-notes-label">Notes</div>
+        <div class="inv-notes-text" id="prev-notes"></div>
+      </div>
+
+      <div class="inv-footer">
+        <div class="inv-footer-brand">Powered by zenly.ai</div>
+        <div class="inv-footer-status" id="prev-status">Draft</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let items = [
+  { desc: '', qty: 1, rate: 0 },
+  { desc: '', qty: 1, rate: 0 },
+];
+
+function fmt(val, sym) {
+  return sym + parseFloat(val || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${day} ${months[parseInt(m)-1]} ${y}`;
+}
+
+function addItem() {
+  items.push({ desc: '', qty: 1, rate: 0 });
+  renderItems();
+  update();
+}
+
+function removeItem(i) {
+  if (items.length === 1) return;
+  items.splice(i, 1);
+  renderItems();
+  update();
+}
+
+function renderItems() {
+  const tbody = document.getElementById('items-body');
+  tbody.innerHTML = '';
+  items.forEach((item, i) => {
+    const total = (parseFloat(item.qty)||0) * (parseFloat(item.rate)||0);
+    const tr = document.createElement('tr');
+    tr.className = 'item-row';
+    tr.innerHTML = `
+      <td><input class="item-input" placeholder="Service description" value="${item.desc}" oninput="items[${i}].desc=this.value;update()" style="width:100%"/></td>
+      <td><input class="item-input" type="number" value="${item.qty}" min="0" oninput="items[${i}].qty=this.value;update()" style="width:60px"/></td>
+      <td><input class="item-input" type="number" value="${item.rate}" min="0" step="0.01" oninput="items[${i}].rate=this.value;update()" style="width:80px"/></td>
+      <td><span class="item-total">${fmt(total, getCurrency())}</span></td>
+      <td><button class="btn-remove" onclick="removeItem(${i})">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function getCurrency() {
+  return document.getElementById('inv-currency')?.value || '$';
+}
+
+function calcTotals() {
+  const sym = getCurrency();
+  const subtotal = items.reduce((s, it) => s + (parseFloat(it.qty)||0)*(parseFloat(it.rate)||0), 0);
+  const disc = parseFloat(document.getElementById('discount')?.value)||0;
+  const tax = parseFloat(document.getElementById('tax')?.value)||0;
+  const discAmt = subtotal * (disc/100);
+  const afterDisc = subtotal - discAmt;
+  const taxAmt = afterDisc * (tax/100);
+  const grand = afterDisc + taxAmt;
+  return { sym, subtotal, disc, discAmt, tax, taxAmt, grand };
+}
+
+function update() {
+  const sym = getCurrency();
+  const t = calcTotals();
+
+  // Totals summary in form
+  let html = `<div class="totals-row"><span>Subtotal</span><span>${fmt(t.subtotal, sym)}</span></div>`;
+  if (t.disc > 0) html += `<div class="totals-row"><span>Discount (${t.disc}%)</span><span>−${fmt(t.discAmt, sym)}</span></div>`;
+  if (t.tax > 0)  html += `<div class="totals-row"><span>Tax (${t.tax}%)</span><span>${fmt(t.taxAmt, sym)}</span></div>`;
+  html += `<div class="totals-row grand"><span>Total</span><span>${fmt(t.grand, sym)}</span></div>`;
+  document.getElementById('totals-summary').innerHTML = html;
+
+  // Re-render item totals
+  document.querySelectorAll('.item-total').forEach((el, i) => {
+    if (items[i]) {
+      const tot = (parseFloat(items[i].qty)||0)*(parseFloat(items[i].rate)||0);
+      el.textContent = fmt(tot, sym);
+    }
+  });
+
+  // Preview — meta
+  document.getElementById('prev-number').textContent = document.getElementById('inv-number').value || 'INV-001';
+  document.getElementById('prev-status').textContent = document.getElementById('inv-status').value || 'Draft';
+
+  const issueDate = document.getElementById('inv-date').value;
+  const dueDate = document.getElementById('inv-due').value;
+  let dateStr = '';
+  if (issueDate) dateStr += 'Issued ' + formatDate(issueDate);
+  if (dueDate) dateStr += (dateStr ? '  ·  ' : '') + 'Due ' + formatDate(dueDate);
+  document.getElementById('prev-dates').textContent = dateStr || '—';
+
+  // Preview — parties
+  const fromName = document.getElementById('from-name').value;
+  const fromEmail = document.getElementById('from-email').value;
+  const fromAddr = document.getElementById('from-address').value;
+  document.getElementById('prev-from-name').textContent = fromName || '—';
+  document.getElementById('prev-from-detail').innerHTML = [fromEmail, fromAddr?.replace(/\n/g,'<br>')].filter(Boolean).join('<br>') || '—';
+
+  const toName = document.getElementById('to-name').value;
+  const toEmail = document.getElementById('to-email').value;
+  const toAddr = document.getElementById('to-address').value;
+  document.getElementById('prev-to-name').textContent = toName || '—';
+  document.getElementById('prev-to-detail').innerHTML = [toEmail, toAddr?.replace(/\n/g,'<br>')].filter(Boolean).join('<br>') || '—';
+
+  // Preview — items
+  const prevItems = document.getElementById('prev-items');
+  prevItems.innerHTML = '';
+  items.forEach(it => {
+    if (!it.desc && !it.rate) return;
+    const amt = (parseFloat(it.qty)||0)*(parseFloat(it.rate)||0);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="desc">${it.desc || '—'}</td>
+      <td>${it.qty}</td>
+      <td>${fmt(it.rate, sym)}</td>
+      <td>${fmt(amt, sym)}</td>
+    `;
+    prevItems.appendChild(tr);
+  });
+
+  // Preview — totals
+  let pt = `<div class="inv-total-row"><span>Subtotal</span><span>${fmt(t.subtotal, sym)}</span></div>`;
+  if (t.disc > 0) pt += `<div class="inv-total-row"><span>Discount (${t.disc}%)</span><span>−${fmt(t.discAmt, sym)}</span></div>`;
+  if (t.tax > 0)  pt += `<div class="inv-total-row"><span>Tax (${t.tax}%)</span><span>${fmt(t.taxAmt, sym)}</span></div>`;
+  pt += `<div class="inv-total-row grand"><span>Total</span><span>${fmt(t.grand, sym)}</span></div>`;
+  document.getElementById('prev-totals').innerHTML = pt;
+
+  // Preview — notes
+  const notes = document.getElementById('notes').value;
+  const notesWrap = document.getElementById('prev-notes-wrap');
+  if (notes.trim()) {
+    document.getElementById('prev-notes').textContent = notes;
+    notesWrap.style.display = 'block';
+  } else {
+    notesWrap.style.display = 'none';
+  }
+}
+
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const sym = getCurrency();
+  const t = calcTotals();
+  const W = 595, margin = 56;
+
+  // Background
+  doc.setFillColor(250, 248, 245);
+  doc.rect(0, 0, W, 842, 'F');
+
+  // Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(10, 10, 10);
+  doc.text('zenly.ai', margin, 72);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(28);
+  doc.text('Invoice', W - margin, 60, { align: 'right' });
+
+  doc.setFontSize(10);
+  doc.setTextColor(150, 150, 150);
+  doc.text(document.getElementById('inv-number').value || 'INV-001', W - margin, 78, { align: 'right' });
+
+  const issueDate = document.getElementById('inv-date').value;
+  const dueDate = document.getElementById('inv-due').value;
+  let dateStr = '';
+  if (issueDate) dateStr += 'Issued ' + formatDate(issueDate);
+  if (dueDate) dateStr += (dateStr ? '   ·   ' : '') + 'Due ' + formatDate(dueDate);
+  doc.text(dateStr, W - margin, 92, { align: 'right' });
+
+  // Rule
+  doc.setDrawColor(220, 218, 214);
+  doc.setLineWidth(0.5);
+  doc.line(margin, 104, W - margin, 104);
+
+  // Parties
+  let y = 124;
+  doc.setFontSize(8);
+  doc.setTextColor(180, 180, 180);
+  doc.text('FROM', margin, y);
+  doc.text('BILL TO', W / 2 + 16, y);
+
+  y += 14;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(10, 10, 10);
+  doc.text(document.getElementById('from-name').value || '—', margin, y);
+  doc.text(document.getElementById('to-name').value || '—', W / 2 + 16, y);
+
+  y += 16;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(120, 120, 120);
+  const fromLines = [document.getElementById('from-email').value, document.getElementById('from-address').value].filter(Boolean);
+  fromLines.forEach(line => { doc.text(line, margin, y); y += 14; });
+
+  let y2 = 138 + 16;
+  const toLines = [document.getElementById('to-email').value, document.getElementById('to-address').value].filter(Boolean);
+  toLines.forEach(line => { doc.text(line, W / 2 + 16, y2); y2 += 14; });
+
+  y = Math.max(y, y2) + 20;
+
+  // Items table header
+  doc.setDrawColor(220, 218, 214);
+  doc.line(margin, y, W - margin, y);
+  y += 14;
+  doc.setFontSize(8);
+  doc.setTextColor(180, 180, 180);
+  doc.text('DESCRIPTION', margin, y);
+  doc.text('QTY', 340, y);
+  doc.text('RATE', 400, y);
+  doc.text('AMOUNT', W - margin, y, { align: 'right' });
+  y += 12;
+  doc.line(margin, y, W - margin, y);
+
+  // Items
+  items.forEach(it => {
+    if (!it.desc && !it.rate) return;
+    y += 18;
+    const amt = (parseFloat(it.qty)||0)*(parseFloat(it.rate)||0);
+    doc.setFontSize(11);
+    doc.setTextColor(10, 10, 10);
+    doc.text(it.desc || '—', margin, y);
+    doc.setTextColor(100, 100, 100);
+    doc.text(String(it.qty), 340, y);
+    doc.text(fmt(it.rate, sym), 400, y);
+    doc.setTextColor(10, 10, 10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(fmt(amt, sym), W - margin, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setDrawColor(240, 238, 235);
+    doc.line(margin, y + 6, W - margin, y + 6);
+  });
+
+  y += 24;
+
+  // Totals
+  const totalsX = W - margin - 200;
+  doc.setFontSize(10);
+  doc.setTextColor(120, 120, 120);
+
+  const addTotalRow = (label, val, bold) => {
+    if (bold) { doc.setFont('helvetica', 'bold'); doc.setTextColor(10,10,10); doc.setFontSize(13); }
+    doc.text(label, totalsX, y);
+    doc.text(val, W - margin, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 120, 120);
+    doc.setFontSize(10);
+    y += 18;
+  };
+
+  addTotalRow('Subtotal', fmt(t.subtotal, sym));
+  if (t.disc > 0) addTotalRow(`Discount (${t.disc}%)`, '−' + fmt(t.discAmt, sym));
+  if (t.tax > 0)  addTotalRow(`Tax (${t.tax}%)`, fmt(t.taxAmt, sym));
+  doc.setDrawColor(180, 178, 174);
+  doc.line(totalsX, y - 4, W - margin, y - 4);
+  y += 4;
+  addTotalRow('Total', fmt(t.grand, sym), true);
+
+  // Notes
+  const notes = document.getElementById('notes').value;
+  if (notes.trim()) {
+    y += 16;
+    doc.setDrawColor(220, 218, 214);
+    doc.line(margin, y, W - margin, y);
+    y += 16;
+    doc.setFontSize(8); doc.setTextColor(180, 180, 180);
+    doc.text('NOTES', margin, y);
+    y += 14;
+    doc.setFontSize(10); doc.setTextColor(120, 120, 120);
+    const noteLines = doc.splitTextToSize(notes, W - margin * 2);
+    doc.text(noteLines, margin, y);
+    y += noteLines.length * 14;
+  }
+
+  // Footer
+  const footerY = 800;
+  doc.setDrawColor(220, 218, 214);
+  doc.line(margin, footerY, W - margin, footerY);
+  doc.setFontSize(9); doc.setTextColor(180, 180, 180);
+  doc.text('Powered by zenly.ai', margin, footerY + 16);
+  const status = document.getElementById('inv-status').value;
+  doc.setTextColor(10, 10, 10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(status.toUpperCase(), W - margin, footerY + 16, { align: 'right' });
+
+  const invNum = document.getElementById('inv-number').value || 'invoice';
+  doc.save(`${invNum}.pdf`);
+  showToast('PDF downloaded');
+}
+
+function resetForm() {
+  document.getElementById('inv-number').value = 'INV-001';
+  document.getElementById('inv-status').value = 'Draft';
+  document.getElementById('inv-date').value = '';
+  document.getElementById('inv-due').value = '';
+  document.getElementById('from-name').value = '';
+  document.getElementById('from-email').value = '';
+  document.getElementById('from-address').value = '';
+  document.getElementById('to-name').value = '';
+  document.getElementById('to-email').value = '';
+  document.getElementById('to-address').value = '';
+  document.getElementById('discount').value = '0';
+  document.getElementById('tax').value = '0';
+  document.getElementById('notes').value = '';
+  items = [{ desc: '', qty: 1, rate: 0 }, { desc: '', qty: 1, rate: 0 }];
+  renderItems();
+  update();
+  showToast('Form reset');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Init
+document.getElementById('inv-date').value = today();
+const due = new Date(); due.setDate(due.getDate() + 30);
+document.getElementById('inv-due').value = due.toISOString().split('T')[0];
+renderItems();
+update();
+</script>
+</body>
+</html>
